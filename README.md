@@ -28,6 +28,13 @@ chmod +x ~/Downloads/aicommit
 sudo mv ~/Downloads/aicommit /usr/local/bin/aicommit
 ```
 
+## Usage
+
+Is it possible to provide an ticket ID as a prefix to the commit message.
+Example:
+`aicommit DB-34`
+Will result on a commit message with this format: `DB-34 - Message example`
+
 ## Demo
 Here's a video of the tool in action:
 
