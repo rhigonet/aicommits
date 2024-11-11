@@ -3,6 +3,9 @@
 # Define the model constant
 MODEL="llama3.2"
 
+# Optional issue ID
+issue_id="${1:-}"
+
 # Step 1: Fetch the last 10 commit messages and format them as a list
 commit_history=$(git log -n 10 --pretty=format:'"%s",' | sed '$ s/,$//')
 commit_history="[$commit_history]"
@@ -43,7 +46,7 @@ Based on the style description extracted from previous commit messages: $style_d
 Commit message:"
 
 # Check if the user wants to see the full prompt
-if [ "$1" = "--show-prompt" ]; then
+if [ "$2" = "--show-prompt" ]; then
     echo "Full prompt for style extraction:"
     echo "$style_prompt"
     echo "Extracted Style Description:"
@@ -56,23 +59,29 @@ fi
 suggested_commit=$(echo "$prompt" | ollama run "$MODEL")
 
 # Step 6: Post-process the output to remove any unwanted text
-# Clean up the suggested commit message (remove leading/trailing whitespace and common unwanted patterns)
 suggested_commit=$(echo "$suggested_commit" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-# Step 7: Check if the suggested commit is empty or the Ollama command failed
+# Prepend the issue ID if provided
+if [ -n "$issue_id" ]; then
+    final_commit_message="$issue_id - $suggested_commit"
+else
+    final_commit_message="$suggested_commit"
+fi
+
+# Step 7: Check if the final commit message is empty or the Ollama command failed
 if [ -z "$suggested_commit" ]; then
     echo "Error: No suggested commit message was generated. Aborting."
     exit 1
 fi
 
 # Step 8: Show the output and confirm
-echo "Suggested commit message: $suggested_commit"
+echo "Suggested commit message: $final_commit_message"
 read -p "Do you want to use this commit message? (y/n/e): " user_choice
 
 case "$user_choice" in
     y|Y)
         # Confirm and commit
-        git commit -m "$suggested_commit"
+        git commit -m "$final_commit_message"
         ;;
     n|N)
         # Reject and exit
@@ -82,13 +91,13 @@ case "$user_choice" in
     e|E)
         # Allow user to edit the suggested commit message in a temporary file
         temp_file=$(mktemp)
-        echo "$suggested_commit" > "$temp_file"
+        echo "$final_commit_message" > "$temp_file"
         
         # Open the file with vi
         vi "$temp_file"
         
         # Check if the edited commit message is different from the original
-        if diff -q "$temp_file" <(echo "$suggested_commit") >/dev/null; then
+        if diff -q "$temp_file" <(echo "$final_commit_message") >/dev/null; then
             echo "Aborting commit due to no changes made to the commit message."
             rm "$temp_file"
             exit 1
